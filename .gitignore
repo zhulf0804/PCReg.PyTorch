@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.idea/
+test*.py
+checkpoints/
+data/ILSVRC2012_img_val
+model/.DS_Store
+.DS_Store
+tmp.py
+work_dirs/
+loss/cuda/emd_torch/PyTorch_EMD.egg-info/
+loss/cuda/emd_torch/build/
+loss/cuda/emd_torch/dist/
