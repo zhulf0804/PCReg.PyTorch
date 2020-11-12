@@ -10,27 +10,31 @@ A Simple Point Cloud Registration Pipeline based on Deep Learning. Detailed Info
 
 ## Start
 - Download data from [[here](https://shapenet.cs.stanford.edu/media/modelnet40_ply_hdf5_2048.zip), `435M`]
-- evaluate and show(download the pretrained checkpoint from [[here]() `17.9 M`] first)
+- evaluate and show(download the pretrained checkpoint from [[Baidu Disk](https://pan.baidu.com/s/1DlGBDR0RLdJ1qxUYqSszdw) `17.15 M`] with password **`0pfg`** first)
 
     ```
-    python modelnet40_evaluate.py --root /root/data/modelnet40_ply_hdf5_2048 --checkpoint work_dirs/1106convbn/checkpoints/test_min_loss.pth --method benchmark --cuda
+    python modelnet40_evaluate.py --root your_data_path/modelnet40_ply_hdf5_2048 --checkpoint checkpoint_path/test_min_degree_error.pth --method benchmark --cuda
     
-    # python modelnet40_evaluate.py --root /root/data/modelnet40_ply_hdf5_2048 --checkpoint work_dirs/1106convbn/checkpoints/test_min_loss.pth --method benchmark --cuda --show #Visualization
+    # ICP
+    # python modelnet40_evaluate.py --root your_data_path/modelnet40_ply_hdf5_2048 --method icp
+
+    # Visualization
+    # python modelnet40_evaluate.py --root your_data_path/modelnet40_ply_hdf5_2048 --checkpoint checkpoint_path/test_min_degree_error.pth --method benchmark  --show
     
     ```
 
 - train
     
     ```
-    CUDA_VISIBLE_DEVICES=0 python modelnet40_train.py --root /root/data/modelnet40_ply_hdf5_2048
+    CUDA_VISIBLE_DEVICES=0 python modelnet40_train.py --root your_data_path/modelnet40_ply_hdf5_2048
     ```
 
 ## Experiments
 
 | Method | mse_t | mse_R | mse_degree | time(s) |
 | :---: | :---: | :---: | :---: | :---: |
-| Iterative Benchmark | 0.35 | 0.21 | 9.37 | 0.02 |
 | icp | 0.40 | 0.38 | 11.86 | 0.06 |
+| Iterative Benchmark | **0.35** | **0.18** | **7.90** | **0.02** |
 
 
 ## Acknowledgements

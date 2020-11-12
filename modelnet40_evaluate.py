@@ -21,7 +21,7 @@ def config_params():
                         help='3 for (x, y, z) or 6 for (x, y, z, nx, ny, nz)')
     parser.add_argument('--niters', type=int, default=8,
                         help='iteration nums in one model forward')
-    parser.add_argument('--checkpoint', required=True,
+    parser.add_argument('--checkpoint', default='',
                         help='the path to the trained checkpoint')
     parser.add_argument('--method', default='',
                         help='choice=[benchmark, icp, fgr]')
@@ -63,6 +63,8 @@ def evaluate_benchmark(args, test_loader):
             degree_errors.append(cur_degree_error.item())
 
             if args.show:
+                print(cur_t_error.item(), cur_R_error.item(),
+                      cur_degree_error.item())
                 ref_cloud = torch.squeeze(ref_cloud).cpu().numpy()
                 src_cloud = torch.squeeze(src_cloud).cpu().numpy()
                 pred_ref_cloud = torch.squeeze(pred_ref_cloud).cpu().numpy()
@@ -99,6 +101,8 @@ def evaluate_icp(args, test_loader):
         degree_errors.append(cur_degree_error.item())
 
         if args.show:
+            print(cur_t_error.item(), cur_R_error.item(),
+                  cur_degree_error.item())
             pcd1 = npy2pcd(ref_cloud, 0)
             pcd2 = npy2pcd(src_cloud, 1)
             pcd3 = pred_ref_cloud

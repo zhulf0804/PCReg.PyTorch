@@ -14,6 +14,13 @@ from metrics import rotation_error, translation_error, degree_error
 from utils import time_calc
 
 
+def setup_seed(seed):
+    torch.backends.cudnn.deterministic = True
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+
+
 def config_params():
     parser = argparse.ArgumentParser(description='Configuration Parameters')
     ## dataset
@@ -21,8 +28,9 @@ def config_params():
     parser.add_argument('--train_npts', type=int, default=1024,
                         help='the points number of each pc for training')
     ## models training
-    parser.add_argument('--epoches', type=int, default=300)
-    parser.add_argument('--batchsize', type=int, default=16)
+    parser.add_argument('--seed', type=int, default=1234)
+    parser.add_argument('--epoches', type=int, default=400)
+    parser.add_argument('--batchsize', type=int, default=32)
     parser.add_argument('--num_workers', type=int, default=4)
     parser.add_argument('--in_dim', type=int, default=3,
                         help='3 for (x, y, z) or 6 for (x, y, z, nx, ny, nz)')
@@ -30,9 +38,8 @@ def config_params():
                         help='iteration nums in one model forward')
     parser.add_argument('--lr', type=float, default=0.0001,
                         help='initial learning rate')
-    #parser.add_argument('--momentum', type=float, default=0.9)
-    #parser.add_argument('--decay_epoch', type=int, default=150,
-    #                    help='lr decays every decay epoch')
+    parser.add_argument('--milestones', type=list, default=[50, 250],
+                        help='lr decays when epoch in milstones')
     parser.add_argument('--gamma', type=float, default=0.1,
                         help='lr decays to gamma * lr every decay epoch')
     # logs
@@ -92,13 +99,10 @@ def test_one_epoch(test_loader, model, loss_fn):
 
 
 def main():
-    seed = 1234
-    torch.backends.cudnn.deterministic = True
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    np.random.seed(seed)
     args = config_params()
     print(args)
+
+    setup_seed(args.seed)
     if not os.path.exists(args.saved_path):
         os.makedirs(args.saved_path)
     summary_path = os.path.join(args.saved_path, 'summary')
@@ -111,26 +115,22 @@ def main():
     train_set = ModelNet40(args.root, args.train_npts)
     test_set = ModelNet40(args.root, args.train_npts, False)
     train_loader = DataLoader(train_set, batch_size=args.batchsize,
-                              shuffle=True, num_workers=4)
+                              shuffle=True, num_workers=args.num_workers)
     test_loader = DataLoader(test_set, batch_size=args.batchsize, shuffle=False,
-                             num_workers=4)
+                             num_workers=args.num_workers)
 
     model = IterativeBenchmark(in_dim1=args.in_dim, niters=args.niters)
     model = model.cuda()
     loss_fn = EMDLosspy()
     loss_fn = loss_fn.cuda()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    # scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
-    #                                             step_size=args.decay_epoch,
-    #                                             gamma=args.gamma)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
-                                                     milestones=[50, 200],
+                                                     milestones=args.milestones,
                                                      gamma=args.gamma,
                                                      last_epoch=-1)
 
     writer = SummaryWriter(summary_path)
-    train_min_loss, train_min_t_error, train_min_R_error, train_min_degree_error = \
-        float('inf'), float('inf'), float('inf'), float('inf')
+
     test_min_loss, test_min_t_error, test_min_R_error, test_min_degree_error = \
         float('inf'), float('inf'), float('inf'), float('inf')
     for epoch in range(args.epoches):
@@ -154,26 +154,6 @@ def main():
             writer.add_scalar('degreeError/train', train_degree_error, epoch + 1)
             writer.add_scalar('degreeError/test', test_degree_error, epoch + 1)
             writer.add_scalar('Lr', optimizer.param_groups[0]['lr'], epoch + 1)
-            #saved_path = os.path.join(checkpoints_path,
-            #                          "benchmark_{}.pth".format(epoch+1))
-            #torch.save(model.state_dict(), saved_path)
-        if train_loss < train_min_loss:
-            saved_path = os.path.join(checkpoints_path, "train_min_loss.pth")
-            torch.save(model.state_dict(), saved_path)
-            train_min_loss = train_loss
-        if train_t_error < train_min_t_error:
-            saved_path = os.path.join(checkpoints_path, "train_min_t_error.pth")
-            torch.save(model.state_dict(), saved_path)
-            train_min_t_error = train_t_error
-        if train_R_error < train_min_R_error:
-            saved_path = os.path.join(checkpoints_path, "train_min_R_error.pth")
-            torch.save(model.state_dict(), saved_path)
-            train_min_R_error = train_R_error
-        if train_degree_error < train_min_degree_error:
-            saved_path = os.path.join(checkpoints_path,
-                                     "train_min_degree_error.pth")
-            torch.save(model.state_dict(), saved_path)
-            train_min_degree_error = train_degree_error
         if test_loss < test_min_loss:
             saved_path = os.path.join(checkpoints_path, "test_min_loss.pth")
             torch.save(model.state_dict(), saved_path)
