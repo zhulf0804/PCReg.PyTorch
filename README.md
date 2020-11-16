@@ -36,6 +36,32 @@ A Simple Point Cloud Registration Pipeline based on Deep Learning. Detailed Info
 | icp | 0.40 | 0.38 | 11.86 | 0.06 |
 | Iterative Benchmark | **0.35** | **0.18** | **7.90** | **0.02** |
 
+## Train your Own Data
+- Prepare the data in the following structure
+    ```
+    |- CustomData(dir)
+        |- train_data(dir)
+            - train1.pcd
+            - train2.pcd
+            - ...
+        |- val_data(dir)
+            - val1.pcd
+            - val2.pcd
+            - ...
+    ```
+- Train
+    ```
+    python custom_train.py --root your_datapath/CustomData --train_npts 2048 
+    # Note: train_npts depends on your dataset
+    ```
+- Evaluate
+    ```
+    # Evaluate, infer_npts depends on your dataset
+    python custom_evaluate.py --root your_datapath/CustomData --infer_npts 2048 --checkpoint work_dirs/models/checkpoints/test_min_degree_error.pth --method benchmark --cuda
+    
+    # Visualize, infer_npts depends on your dataset
+    python custom_evaluate.py --root your_datapath/CustomData --infer_npts 2048 --checkpoint work_dirs/models/checkpoints/test_min_degree_error.pth --method benchmark --show
+    ```
 
 ## Acknowledgements
 
