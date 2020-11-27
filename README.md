@@ -36,6 +36,14 @@ A Simple Point Cloud Registration Pipeline based on Deep Learning. Detailed Info
 | icp | 0.40 | 0.38 | 11.86 | 0.06 |
 | Iterative Benchmark | **0.35** | **0.18** | **7.90** | **0.02** |
 
+
+| Method | mse_R(mae_R) | mse_t(mae_t) | mse_degree | abc | MCD | time(s) |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| icp | 0.40 | 0.38 | 11.86 | 0.06 |
+| Iterative Benchmark | **0.35** | **0.18** | **7.90** | **0.02** |
+
+MCD means modified CD Distance, detailed information please refer to [RPM-Net](https://arxiv.org/pdf/2003.13479.pdf).
+
 ## Train your Own Data
 - Prepare the data in the following structure
     ```

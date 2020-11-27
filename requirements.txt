@@ -3,3 +3,4 @@ numpy==1.16.1
 torch==1.4.0
 tensorboard==2.3.0
 h5py==3.0.0
+scipy

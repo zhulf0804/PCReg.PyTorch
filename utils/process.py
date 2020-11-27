@@ -147,3 +147,9 @@ def random_scale_point_cloud(pc, scale_low=0.8, scale_high=1.25):
     scale = np.random.uniform(scale_low, scale_high, 1)
     pc *= scale
     return pc
+
+
+def inv_R_t(R, t):
+    inv_R = R.permute(0, 2, 1).contiguous()
+    inv_t = - inv_R @ t[..., None]
+    return inv_R, torch.squeeze(inv_t, -1)

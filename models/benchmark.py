@@ -69,7 +69,7 @@ class IterativeBenchmark(nn.Module):
             batch_t_res = torch.matmul(batch_R, batch_t_res) \
                           + torch.unsqueeze(batch_t, -1)
             transformed_x = transformed_x.permute(0, 2, 1).contiguous()
-        batch_t_res = torch.squeeze(batch_t_res)
+        batch_t_res = torch.squeeze(batch_t_res, dim=-1)
         transformed_x = transformed_x.permute(0, 2, 1).contiguous()
         return batch_R_res, batch_t_res, transformed_x
 
