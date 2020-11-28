@@ -15,10 +15,11 @@ from utils import pc_normalize, random_select_points, shift_point_cloud, \
 
 
 class ModelNet40(Dataset):
-    def __init__(self, root, npts, train=True):
+    def __init__(self, root, npts, train=True, normal=False):
         super(ModelNet40, self).__init__()
         self.npts = npts
         self.train = train
+        self.normal = normal
         files = [os.path.join(root, 'ply_data_train{}.h5'.format(i))
                  for i in range(5)]
         if not train:
@@ -30,28 +31,33 @@ class ModelNet40(Dataset):
         self.ts = [generate_random_tranlation_vector() for _ in range(l)]
     
     def decode_h5(self, files):
-        data, label = [], []
+        points, normal, label = [], [], []
         for file in files:
             f = h5py.File(file, 'r')
-            cur_data = f['data'][:].astype(np.float32)
+            cur_points = f['data'][:].astype(np.float32)
+            cur_normal = f['normal'][:].astype(np.float32)
             cur_label = f['label'][:].astype(np.float32)
-            data.append(cur_data)
+            points.append(cur_points)
+            normal.append(cur_normal)
             label.append(cur_label)
-        data = np.concatenate(data, axis=0)
+        points = np.concatenate(points, axis=0)
+        normal = np.concatenate(normal, axis=0)
+        data = np.concatenate([points, normal], axis=-1).astype(np.float32)
         label = np.concatenate(label, axis=0)
         return data, label
 
     def __getitem__(self, item):
         ref_cloud = self.data[item, ...]
-        ref_cloud = random_select_points(ref_cloud, m=self.npts)
-        #ref_cloud = pc_normalize(ref_cloud)
-        #if self.train:
-        #    ref_cloud = shift_point_cloud(ref_cloud)
         R, t = self.Rs[item], self.ts[item]
-        src_cloud = transform(ref_cloud, R, t)
+        ref_cloud = random_select_points(ref_cloud, m=self.npts)
+        src_cloud_points = transform(ref_cloud[:, :3], R, t)
+        src_cloud_normal = transform(ref_cloud[:, 3:], R)
+        src_cloud = np.concatenate([src_cloud_points, src_cloud_normal], axis=-1)
         if self.train:
-            ref_cloud = jitter_point_cloud(ref_cloud)
-            src_cloud = jitter_point_cloud(src_cloud)
+            ref_cloud[:, :3] = jitter_point_cloud(ref_cloud[:, :3])
+            src_cloud[:, :3] = jitter_point_cloud(src_cloud[:, :3])
+        if not self.normal:
+            ref_cloud, src_cloud = ref_cloud[:, :3], src_cloud[:, :3]
         return ref_cloud, src_cloud, R, t
 
     def __len__(self):

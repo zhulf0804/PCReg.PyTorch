@@ -4,13 +4,16 @@ import open3d as o3d
 
 
 def icp(source, target):
-    threshold = 2
-    trans_init = np.eye(4, dtype=np.float32)
+    max_correspondence_distance = 2 # 0.5 in RPM-Net
+    init = np.eye(4, dtype=np.float32)
+    estimation_method = o3d.registration.TransformationEstimationPointToPoint()
 
     reg_p2p = o3d.registration.registration_icp(
-        source, target, threshold, trans_init,
-        o3d.registration.TransformationEstimationPointToPoint(),
-        o3d.registration.ICPConvergenceCriteria(max_iteration=30)
+        source=source,
+        target=target,
+        init=init,
+        max_correspondence_distance=max_correspondence_distance,
+        estimation_method=estimation_method
     )
 
     transformation = reg_p2p.transformation

@@ -62,11 +62,14 @@ def generate_random_tranlation_vector(range1=-1, range2=1):
     return tranlation_vector
 
 
-def transform(pc, R, t):
-    return np.dot(pc, R.T) + t
+def transform(pc, R, t=None):
+    pc = np.dot(pc, R.T)
+    if t is not None:
+        pc = pc + t
+    return pc
 
 
-def batch_transform(batch_pc, batch_R, batch_t):
+def batch_transform(batch_pc, batch_R, batch_t=None):
     '''
 
     :param batch_pc: shape=(B, N, 3)
@@ -74,8 +77,9 @@ def batch_transform(batch_pc, batch_R, batch_t):
     :param batch_t: shape=(B, 3)
     :return: shape(B, N, 3)
     '''
-    transformed_pc = torch.matmul(batch_pc, batch_R.permute(0, 2, 1).contiguous()) \
-                    + torch.unsqueeze(batch_t, 1)
+    transformed_pc = torch.matmul(batch_pc, batch_R.permute(0, 2, 1).contiguous())
+    if batch_t is not None:
+        transformed_pc = transformed_pc + torch.unsqueeze(batch_t, 1)
     return transformed_pc
 
 

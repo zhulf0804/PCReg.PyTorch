@@ -10,14 +10,15 @@ from utils import batch_quat2mat, batch_transform
 
 
 class PointNet(nn.Module):
-    def __init__(self, in_dim=3, mlps=[64, 64, 64, 128, 1024]):
+    def __init__(self, in_dim, gn, mlps=[64, 64, 64, 128, 1024]):
         super(PointNet, self).__init__()
         self.backbone = nn.Sequential()
         for i, out_dim in enumerate(mlps):
             self.backbone.add_module(f'pointnet_conv_{i}',
                                      nn.Conv1d(in_dim, out_dim, 1, 1, 0))
-            #self.backbone.add_module(f'pointnet_bn_{i}',
-            #                         nn.BatchNorm1d(out_dim))
+            if gn:
+                self.backbone.add_module(f'pointnet_gn_{i}',
+                                    nn.GroupNorm(8, out_dim))
             self.backbone.add_module(f'pointnet_relu_{i}',
                                      nn.ReLU(inplace=True))
             in_dim = out_dim
@@ -29,14 +30,16 @@ class PointNet(nn.Module):
 
 
 class Benchmark(nn.Module):
-    def __init__(self, in_dim1, in_dim2=2048, fcs=[1024, 1204, 512, 512, 256, 7]):
+    def __init__(self, gn, in_dim1, in_dim2=2048, fcs=[1024, 1024, 512, 512, 256, 7]):
         super(Benchmark, self).__init__()
-        self.encoder = PointNet(in_dim=in_dim1)
+        self.in_dim1 = in_dim1
+        self.encoder = PointNet(in_dim=in_dim1, gn=gn)
         self.decoder = nn.Sequential()
         for i, out_dim in enumerate(fcs):
             self.decoder.add_module(f'fc_{i}', nn.Linear(in_dim2, out_dim))
             if out_dim != 7:
-                #self.decoder.add_module(f'bn_{i}', nn.BatchNorm1d(out_dim))
+                if gn:
+                    self.decoder.add_module(f'gn_{i}',nn.GroupNorm(8, out_dim))
                 self.decoder.add_module(f'relu_{i}', nn.ReLU(inplace=True))
             in_dim2 = out_dim
 
@@ -46,15 +49,24 @@ class Benchmark(nn.Module):
         out = self.decoder(concat)
         batch_t, batch_quat = out[:, :3], out[:, 3:] / torch.norm(out[:, 3:], dim=1, keepdim=True)
         batch_R = batch_quat2mat(batch_quat)
-        transformed_x = batch_transform(x.permute(0, 2, 1).contiguous(),
-                                        batch_R, batch_t)
+        if self.in_dim1 == 3:
+            transformed_x = batch_transform(x.permute(0, 2, 1).contiguous(),
+                                            batch_R, batch_t)
+        elif self.in_dim1 == 6:
+            transformed_pts = batch_transform(x.permute(0, 2, 1)[:, :, :3].contiguous(),
+                                            batch_R, batch_t)
+            transformed_nls = batch_transform(x.permute(0, 2, 1)[:, :, 3:].contiguous(),
+                                              batch_R)
+            transformed_x = torch.cat([transformed_pts, transformed_nls], dim=-1)
+        else:
+            raise ValueError
         return batch_R, batch_t, transformed_x
 
 
 class IterativeBenchmark(nn.Module):
-    def __init__(self, in_dim1, niters):
+    def __init__(self, in_dim, niters, gn):
         super(IterativeBenchmark, self).__init__()
-        self.benckmark = Benchmark(in_dim1)
+        self.benckmark = Benchmark(gn=gn, in_dim1=in_dim)
         self.niters = niters
 
     def forward(self, x, y):

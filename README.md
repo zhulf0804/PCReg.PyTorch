@@ -13,14 +13,18 @@ A Simple Point Cloud Registration Pipeline based on Deep Learning. Detailed Info
 - evaluate and show(download the pretrained checkpoint from [[Baidu Disk](https://pan.baidu.com/s/1DlGBDR0RLdJ1qxUYqSszdw) `17.15 M`] with password **`0pfg`** first)
 
     ```
+    # Iterative Benchmark
     python modelnet40_evaluate.py --root your_data_path/modelnet40_ply_hdf5_2048 --checkpoint checkpoint_path/test_min_degree_error.pth --method benchmark --cuda
     
-    # ICP
-    # python modelnet40_evaluate.py --root your_data_path/modelnet40_ply_hdf5_2048 --method icp
-
     # Visualization
     # python modelnet40_evaluate.py --root your_data_path/modelnet40_ply_hdf5_2048 --checkpoint checkpoint_path/test_min_degree_error.pth --method benchmark  --show
     
+    # ICP
+    # python modelnet40_evaluate.py --root your_data_path/modelnet40_ply_hdf5_2048 --method icp
+    
+    # FGR
+    # python modelnet40_evaluate.py --root your_data_path/modelnet40_ply_hdf5_2048 --method fgr --normal
+
     ```
 
 - train
@@ -31,20 +35,25 @@ A Simple Point Cloud Registration Pipeline based on Deep Learning. Detailed Info
 
 ## Experiments
 
-| Method | mse_t | mse_R | mse_degree | time(s) |
-| :---: | :---: | :---: | :---: | :---: |
-| icp | 0.40 | 0.38 | 11.86 | 0.06 |
-| Iterative Benchmark | **0.35** | **0.18** | **7.90** | **0.02** |
 
+- Point-to-Point Correspondences
 
-| Method | mse_R(mae_R) | mse_t(mae_t) | mse_degree | abc | MCD | time(s) |
-| :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| icp | 0.40 | 0.38 | 11.86 | 0.06 |
-| Iterative Benchmark | **0.35** | **0.18** | **7.90** | **0.02** |
+| Method | isotropic R | isotropic t | anisotropic R(mse, mae) | anisotropic t(mse, mae) | time(s) |
+| :---: | :---: | :---: | :---: | :---: | :---: |
+| ICP | 11.84 | 0.17 | 18.47(5.86) | 0.23(0.08) | 0.07 |
+| FGR | 0.01 | 0.00 | 0.14(0.01) | 0.00(0.00) | 0.19 |
+| IBenchmark | 7.90 | 0.10 | 11.17(3.73) | 0.14(0.05) | 0.022 |
+| IBenchmark + GN | 6.43 | 0.08 | 10.38(3.02) | 0.13(0.04) | 0.035 |
+| IBenchmark + NL | 
+| IBenchmark + GN + NL | 
 
-MCD means modified CD Distance, detailed information please refer to [RPM-Net](https://arxiv.org/pdf/2003.13479.pdf).
+- Partial-to-Complete Registration
 
-## Train your Own Data
+**Note**: 
+- IBenchmark means `Iterative Benchmark`, GN means `Group Normalization`, NL means `Normal Vectors`.
+- Detailed metrics information please refer to [RPM-Net](https://arxiv.org/pdf/2003.13479.pdf)[CVPR 2020].
+
+## Train your Own Data(optimizing, try later..)
 - Prepare the data in the following structure
     ```
     |- CustomData(dir)

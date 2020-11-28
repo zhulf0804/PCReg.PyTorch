@@ -2,6 +2,7 @@ import math
 import numpy as np
 import torch
 from scipy.spatial.transform import Rotation
+from utils import inv_R_t
 
 
 def anisotropic_R_error(r1, r2, seq='xyz', degrees=True):
@@ -69,10 +70,11 @@ def isotropic_t_error(t1, t2, R2):
     '''
     Calculate isotropic translation error between t1 and t2.
     :param t1: shape=(B, 3), pred_t
-    :param t2: shape=(B, 3), inv_gtt
-    :param R2: shape=(B, 3, 3), inv_gtR
+    :param t2: shape=(B, 3), gtt
+    :param R2: shape=(B, 3, 3), gtR
     :return:
     '''
+    R2, t2 = inv_R_t(R2, t2)
     error = torch.squeeze(R2 @ t1[..., None], -1) + t2
     error = torch.norm(error, dim=-1)
     return error
