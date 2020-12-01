@@ -70,6 +70,7 @@ class IterativeBenchmark(nn.Module):
         self.niters = niters
 
     def forward(self, x, y):
+        transformed_xs = []
         device = x.device
         B = x.size()[0]
         transformed_x = torch.clone(x)
@@ -77,13 +78,14 @@ class IterativeBenchmark(nn.Module):
         batch_t_res = torch.zeros(3, 1).to(device).unsqueeze(0).repeat(B, 1, 1)
         for i in range(self.niters):
             batch_R, batch_t, transformed_x = self.benckmark(transformed_x, y)
+            transformed_xs.append(transformed_x)
             batch_R_res = torch.matmul(batch_R, batch_R_res)
             batch_t_res = torch.matmul(batch_R, batch_t_res) \
                           + torch.unsqueeze(batch_t, -1)
             transformed_x = transformed_x.permute(0, 2, 1).contiguous()
         batch_t_res = torch.squeeze(batch_t_res, dim=-1)
-        transformed_x = transformed_x.permute(0, 2, 1).contiguous()
-        return batch_R_res, batch_t_res, transformed_x
+        #transformed_x = transformed_x.permute(0, 2, 1).contiguous()
+        return batch_R_res, batch_t_res, transformed_xs
 
 
 if __name__ == '__main__':

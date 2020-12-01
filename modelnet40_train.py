@@ -53,6 +53,16 @@ def config_params():
     return args
 
 
+def compute_loss(ref_cloud, pred_ref_clouds, loss_fn):
+    losses = []
+    discount_factor = 0.5
+    for i in range(8):
+        loss = loss_fn(ref_cloud[..., :3].contiguous(),
+                       pred_ref_clouds[i][..., :3].contiguous())
+        losses.append(discount_factor**(8 - i)*loss)
+    return torch.sum(torch.stack(losses))
+
+
 @time_calc
 def train_one_epoch(train_loader, model, loss_fn, optimizer):
     losses = []
@@ -61,9 +71,11 @@ def train_one_epoch(train_loader, model, loss_fn, optimizer):
         ref_cloud, src_cloud, gtR, gtt = ref_cloud.cuda(), src_cloud.cuda(), \
                                          gtR.cuda(), gtt.cuda()
         optimizer.zero_grad()
-        R, t, pred_ref_cloud = model(src_cloud.permute(0, 2, 1).contiguous(),
+        R, t, pred_ref_clouds = model(src_cloud.permute(0, 2, 1).contiguous(),
                                      ref_cloud.permute(0, 2, 1).contiguous())
-        loss = loss_fn(ref_cloud, pred_ref_cloud)
+        #loss = loss_fn(ref_cloud[..., :3].contiguous(),
+        #               pred_ref_clouds[..., :3].contiguous())
+        loss = compute_loss(ref_cloud, pred_ref_clouds, loss_fn)
         loss.backward()
         optimizer.step()
 
@@ -99,9 +111,11 @@ def test_one_epoch(test_loader, model, loss_fn):
         for ref_cloud, src_cloud, gtR, gtt in tqdm(test_loader):
             ref_cloud, src_cloud, gtR, gtt = ref_cloud.cuda(), src_cloud.cuda(), \
                                              gtR.cuda(), gtt.cuda()
-            R, t, pred_ref_cloud = model(src_cloud.permute(0, 2, 1).contiguous(),
+            R, t, pred_ref_clouds = model(src_cloud.permute(0, 2, 1).contiguous(),
                                          ref_cloud.permute(0, 2, 1).contiguous())
-            loss = loss_fn(ref_cloud, pred_ref_cloud)
+            #loss = loss_fn(ref_cloud[..., :3].contiguous(),
+            #               pred_ref_cloud[..., :3].contiguous())
+            loss = compute_loss(ref_cloud, pred_ref_clouds, loss_fn)
             cur_r_mse, cur_r_mae, cur_t_mse, cur_t_mae, cur_r_isotropic, \
             cur_t_isotropic = compute_metrics(R, t, gtR, gtt)
 
@@ -185,7 +199,7 @@ def main():
             torch.save(model.state_dict(), saved_path)
             test_min_loss = test_loss
         if test_r_error < test_min_r_mse_error:
-            saved_path = os.path.join(checkpoints_path, "test_r_mse_error.pth")
+            saved_path = os.path.join(checkpoints_path, "test_min_rmse_error.pth")
             torch.save(model.state_dict(), saved_path)
             test_min_r_mse_error = test_r_error
         if test_rot_error < test_min_rot_error:

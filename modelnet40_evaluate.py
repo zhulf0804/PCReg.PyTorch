@@ -69,7 +69,7 @@ def evaluate_benchmark(args, test_loader):
             if args.show:
                 ref_cloud = torch.squeeze(ref_cloud).cpu().numpy()
                 src_cloud = torch.squeeze(src_cloud).cpu().numpy()
-                pred_ref_cloud = torch.squeeze(pred_ref_cloud).cpu().numpy()
+                pred_ref_cloud = torch.squeeze(pred_ref_cloud[-1]).cpu().numpy()
                 pcd1 = npy2pcd(ref_cloud, 0)
                 pcd2 = npy2pcd(src_cloud, 1)
                 pcd3 = npy2pcd(pred_ref_cloud, 2)
@@ -109,8 +109,6 @@ def evaluate_icp(args, test_loader):
         t_isotropic.append(cur_t_isotropic.cpu().detach().numpy())
 
         if args.show:
-            print(cur_t_error.item(), cur_R_error.item(),
-                  cur_degree_error.item())
             pcd1 = npy2pcd(ref_cloud, 0)
             pcd2 = npy2pcd(src_cloud, 1)
             pcd3 = pred_ref_cloud
@@ -155,10 +153,8 @@ def evaluate_fgr(args, test_loader):
         t_isotropic.append(cur_t_isotropic.cpu().detach().numpy())
 
         if args.show:
-            print(cur_t_error.item(), cur_R_error.item(),
-                  cur_degree_error.item())
-            pcd1 = npy2pcd(ref_cloud, 0)
-            pcd2 = npy2pcd(src_cloud, 1)
+            pcd1 = npy2pcd(ref_points, 0)
+            pcd2 = npy2pcd(src_points, 1)
             pcd3 = pred_ref_cloud
             o3d.visualization.draw_geometries([pcd1, pcd2, pcd3])
 

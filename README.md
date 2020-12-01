@@ -10,14 +10,14 @@ A Simple Point Cloud Registration Pipeline based on Deep Learning. Detailed Info
 
 ## Start
 - Download data from [[here](https://shapenet.cs.stanford.edu/media/modelnet40_ply_hdf5_2048.zip), `435M`]
-- evaluate and show(download the pretrained checkpoint from [[Baidu Disk](https://pan.baidu.com/s/1DlGBDR0RLdJ1qxUYqSszdw) `17.15 M`] with password **`0pfg`** first)
+- evaluate and show(download the pretrained checkpoint from [[Baidu Disk](https://pan.baidu.com/s/1G-EdSma--S5pqmREKxxSnw) `16.09 M`] with password **`2j1d`** first)
 
     ```
     # Iterative Benchmark
-    python modelnet40_evaluate.py --root your_data_path/modelnet40_ply_hdf5_2048 --checkpoint checkpoint_path/test_min_degree_error.pth --method benchmark --cuda
+    python modelnet40_evaluate.py --root your_data_path/modelnet40_ply_hdf5_2048 --checkpoint your_ckpt_path/test_min_loss.pth --cuda
     
     # Visualization
-    # python modelnet40_evaluate.py --root your_data_path/modelnet40_ply_hdf5_2048 --checkpoint checkpoint_path/test_min_degree_error.pth --method benchmark  --show
+    # python modelnet40_evaluate.py --root your_data_path/modelnet40_ply_hdf5_2048 --checkpoint your_ckpt_path/test_min_loss.pth  --show
     
     # ICP
     # python modelnet40_evaluate.py --root your_data_path/modelnet40_ply_hdf5_2048 --method icp
@@ -41,16 +41,18 @@ A Simple Point Cloud Registration Pipeline based on Deep Learning. Detailed Info
 | Method | isotropic R | isotropic t | anisotropic R(mse, mae) | anisotropic t(mse, mae) | time(s) |
 | :---: | :---: | :---: | :---: | :---: | :---: |
 | ICP | 11.84 | 0.17 | 18.47(5.86) | 0.23(0.08) | 0.07 |
-| FGR | 0.01 | 0.00 | 0.14(0.01) | 0.00(0.00) | 0.19 |
-| IBenchmark | 7.90 | 0.10 | 11.17(3.73) | 0.14(0.05) | 0.022 |
+| FGR | **0.01** | **0.00** | **0.14(0.01)** | **0.00(0.00)** | 0.19 |
+| **IBenchmark** | 7.90 | 0.10 | 11.17(3.73) | 0.14(0.05) | 0.022 |
 | IBenchmark + GN | 6.43 | 0.08 | 10.38(3.02) | 0.13(0.04) | 0.035 |
-| IBenchmark + NL | 
-| IBenchmark + GN + NL | 
+| IBenchmark + ILoss | 6.27 | 0.08 | **9.94(2.99)** | 0.13(0.04) | **0.022** |
+| IBenchmark + ILoss + Normal | 6.36 | 0.08 | 10.20(2.97) | 0.13(0.04) | 0.023 |
+| IBenchmark + ILoss + GN | **6.06** | 0.08 | 10.54(2.91) | **0.13(0.03)** | 0.029 |
+| IBenchmark + ILoss + Normal + GN | 6.81 | 0.09 | 10.75(3.21) | 0.13(0.04) | 0.028 |
 
-- Partial-to-Complete Registration
 
 **Note**: 
-- IBenchmark means `Iterative Benchmark`, GN means `Group Normalization`, NL means `Normal Vectors`.
+- IBenchmark means `Iterative Benchmark`, GN means `Group Normalization`, 
+NL means `Normal Vectors`, `ILoss` means `Iterative Loss`.
 - Detailed metrics information please refer to [RPM-Net](https://arxiv.org/pdf/2003.13479.pdf)[CVPR 2020].
 
 ## Train your Own Data(optimizing, try later..)
