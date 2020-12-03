@@ -9,6 +9,7 @@ model/.DS_Store
 .DS_Store
 tmp.py
 work_dirs/
+work_dirs*
 loss/cuda/emd_torch/PyTorch_EMD.egg-info/
 loss/cuda/emd_torch/build/
 loss/cuda/emd_torch/dist/

@@ -93,5 +93,3 @@ if __name__ == '__main__':
     net = IterativeBenchmark(in_dim1=3, niters=2)
     print(net)
     batch_R, batch_t, transformed_x = net(x, y)
-    print(batch_R, batch_R.size())
-    print(batch_t, batch_t.size())

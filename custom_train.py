@@ -3,6 +3,7 @@ import numpy as np
 import open3d
 import os
 import torch
+import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
@@ -10,7 +11,7 @@ from tqdm import tqdm
 from data import CustomData
 from models import IterativeBenchmark
 from loss import EMDLosspy
-from metrics import rotation_error, translation_error, degree_error
+from metrics import compute_metrics, summary_metrics, print_train_info
 from utils import time_calc
 
 
@@ -29,6 +30,8 @@ def config_params():
                         help='the points number of each pc for training')
     ## models training
     parser.add_argument('--seed', type=int, default=1234)
+    parser.add_argument('--gn', action='store_true',
+                        help='whether to use group normalization')
     parser.add_argument('--epoches', type=int, default=400)
     parser.add_argument('--batchsize', type=int, default=16)
     parser.add_argument('--num_workers', type=int, default=4)
@@ -51,51 +54,88 @@ def config_params():
     return args
 
 
+def compute_loss(ref_cloud, pred_ref_clouds, loss_fn):
+    losses = []
+    discount_factor = 0.5
+    for i in range(8):
+        loss = loss_fn(ref_cloud[..., :3].contiguous(),
+                       pred_ref_clouds[i][..., :3].contiguous())
+        losses.append(discount_factor**(8 - i)*loss)
+    return torch.sum(torch.stack(losses))
+
+
 @time_calc
 def train_one_epoch(train_loader, model, loss_fn, optimizer):
-    losses, t_errors, R_errors, degree_errors = [], [], [], []
+    losses = []
+    r_mse, r_mae, t_mse, t_mae, r_isotropic, t_isotropic = [], [], [], [], [], []
     for ref_cloud, src_cloud, gtR, gtt in tqdm(train_loader):
         ref_cloud, src_cloud, gtR, gtt = ref_cloud.cuda(), src_cloud.cuda(), \
                                          gtR.cuda(), gtt.cuda()
         optimizer.zero_grad()
-        R, t, pred_ref_cloud = model(src_cloud.permute(0, 2, 1).contiguous(),
+        R, t, pred_ref_clouds = model(src_cloud.permute(0, 2, 1).contiguous(),
                                      ref_cloud.permute(0, 2, 1).contiguous())
-        loss = loss_fn(ref_cloud, pred_ref_cloud)
+        loss = compute_loss(ref_cloud, pred_ref_clouds, loss_fn)
         loss.backward()
         optimizer.step()
 
-        cur_t_error = translation_error(t, -gtt)
-        cur_R_error = rotation_error(R, gtR.permute(0, 2, 1).contiguous())
-        cur_degree_error = degree_error(R, gtR.permute(0, 2, 1).contiguous())
+        cur_r_mse, cur_r_mae, cur_t_mse, cur_t_mae, cur_r_isotropic, \
+        cur_t_isotropic = compute_metrics(R, t, gtR, gtt)
         losses.append(loss.item())
-        t_errors.append(cur_t_error.item())
-        R_errors.append(cur_R_error.item())
-        degree_errors.append(cur_degree_error.item())
-    return np.mean(losses), np.mean(t_errors), np.mean(R_errors), np.mean(degree_errors)
+        r_mse.append(cur_r_mse)
+        r_mae.append(cur_r_mae)
+        t_mse.append(cur_t_mse)
+        t_mae.append(cur_t_mae)
+        r_isotropic.append(cur_r_isotropic.cpu().detach().numpy())
+        t_isotropic.append(cur_t_isotropic.cpu().detach().numpy())
+    r_mse, r_mae, t_mse, t_mae, r_isotropic, t_isotropic = \
+        summary_metrics(r_mse, r_mae, t_mse, t_mae, r_isotropic, t_isotropic)
+    results = {
+        'loss': np.mean(losses),
+        'r_mse': r_mse,
+        'r_mae': r_mae,
+        't_mse': t_mse,
+        't_mae': t_mae,
+        'r_isotropic': r_isotropic,
+        't_isotropic': t_isotropic
+    }
+    return results
 
 
 @time_calc
 def test_one_epoch(test_loader, model, loss_fn):
     model.eval()
-    losses, t_errors, R_errors, degree_errors = [], [], [], []
+    losses = []
+    r_mse, r_mae, t_mse, t_mae, r_isotropic, t_isotropic = [], [], [], [], [], []
     with torch.no_grad():
         for ref_cloud, src_cloud, gtR, gtt in tqdm(test_loader):
             ref_cloud, src_cloud, gtR, gtt = ref_cloud.cuda(), src_cloud.cuda(), \
                                              gtR.cuda(), gtt.cuda()
-            R, t, pred_ref_cloud = model(src_cloud.permute(0, 2, 1).contiguous(),
+            R, t, pred_ref_clouds = model(src_cloud.permute(0, 2, 1).contiguous(),
                                          ref_cloud.permute(0, 2, 1).contiguous())
-            loss = loss_fn(ref_cloud, pred_ref_cloud)
-            cur_t_error = translation_error(t, -gtt)
-            cur_R_error = rotation_error(R, gtR.permute(0, 2, 1).contiguous())
-            cur_degree_error = degree_error(R,
-                                            gtR.permute(0, 2, 1).contiguous())
+            loss = compute_loss(ref_cloud, pred_ref_clouds, loss_fn)
+            cur_r_mse, cur_r_mae, cur_t_mse, cur_t_mae, cur_r_isotropic, \
+            cur_t_isotropic = compute_metrics(R, t, gtR, gtt)
+
             losses.append(loss.item())
-            t_errors.append(cur_t_error.item())
-            R_errors.append(cur_R_error.item())
-            degree_errors.append(cur_degree_error.item())
+            r_mse.append(cur_r_mse)
+            r_mae.append(cur_r_mae)
+            t_mse.append(cur_t_mse)
+            t_mae.append(cur_t_mae)
+            r_isotropic.append(cur_r_isotropic.cpu().detach().numpy())
+            t_isotropic.append(cur_t_isotropic.cpu().detach().numpy())
     model.train()
-    return np.mean(losses), np.mean(t_errors), np.mean(R_errors), np.mean(
-            degree_errors)
+    r_mse, r_mae, t_mse, t_mae, r_isotropic, t_isotropic = \
+        summary_metrics(r_mse, r_mae, t_mse, t_mae, r_isotropic, t_isotropic)
+    results = {
+        'loss': np.mean(losses),
+        'r_mse': r_mse,
+        'r_mae': r_mae,
+        't_mse': t_mse,
+        't_mae': t_mae,
+        'r_isotropic': r_isotropic,
+        't_isotropic': t_isotropic
+    }
+    return results
 
 
 def main():
@@ -118,8 +158,7 @@ def main():
                               shuffle=True, num_workers=args.num_workers)
     test_loader = DataLoader(test_set, batch_size=args.batchsize, shuffle=False,
                              num_workers=args.num_workers)
-
-    model = IterativeBenchmark(in_dim1=args.in_dim, niters=args.niters)
+    model = IterativeBenchmark(in_dim=args.in_dim, niters=args.niters, gn = args.gn)
     model = model.cuda()
     loss_fn = EMDLosspy()
     loss_fn = loss_fn.cuda()
@@ -131,46 +170,42 @@ def main():
 
     writer = SummaryWriter(summary_path)
 
-    test_min_loss, test_min_t_error, test_min_R_error, test_min_degree_error = \
-        float('inf'), float('inf'), float('inf'), float('inf')
+    test_min_loss, test_min_r_mse_error, test_min_rot_error = \
+        float('inf'), float('inf'), float('inf')
     for epoch in range(args.epoches):
         print('=' * 20, epoch + 1, '=' * 20)
-        train_loss, train_t_error, train_R_error, train_degree_error = \
-            train_one_epoch(train_loader, model, loss_fn, optimizer)
-        print('Train: loss: {:.4f}, t_error: {:.4f}, R_error: {:.4f}, degree_error: {:.4f}'.
-              format(train_loss, train_t_error, train_R_error, train_degree_error))
-        test_loss, test_t_error, test_R_error, test_degree_error = \
-            test_one_epoch(test_loader, model, loss_fn)
-        print('Test: loss: {:.4f}, t_error: {:.4f}, R_error: {:.4f}, degree_error: {:.4f}'.
-              format(test_loss, test_t_error, test_R_error, test_degree_error))
+        train_results = train_one_epoch(train_loader, model, loss_fn, optimizer)
+        print_train_info(train_results)
+        test_results = test_one_epoch(test_loader, model, loss_fn)
+        print_train_info(test_results)
 
         if epoch % args.saved_frequency == 0:
-            writer.add_scalar('Loss/train', train_loss, epoch + 1)
-            writer.add_scalar('Loss/test', test_loss, epoch + 1)
-            writer.add_scalar('TError/train', train_t_error, epoch + 1)
-            writer.add_scalar('TError/test', test_t_error, epoch + 1)
-            writer.add_scalar('RError/train', train_R_error, epoch + 1)
-            writer.add_scalar('RError/test', test_R_error, epoch + 1)
-            writer.add_scalar('degreeError/train', train_degree_error, epoch + 1)
-            writer.add_scalar('degreeError/test', test_degree_error, epoch + 1)
+            writer.add_scalar('Loss/train', train_results['loss'], epoch + 1)
+            writer.add_scalar('Loss/test', test_results['loss'], epoch + 1)
+            writer.add_scalar('RError/train', train_results['r_mse'], epoch + 1)
+            writer.add_scalar('RError/test', test_results['r_mse'], epoch + 1)
+            writer.add_scalar('rotError/train', train_results['r_isotropic'],
+                              epoch + 1)
+            writer.add_scalar('rotError/test', test_results['r_isotropic'],
+                              epoch + 1)
             writer.add_scalar('Lr', optimizer.param_groups[0]['lr'], epoch + 1)
+        test_loss, test_r_error, test_rot_error = \
+            test_results['loss'], test_results['r_mse'], test_results[
+                'r_isotropic']
         if test_loss < test_min_loss:
             saved_path = os.path.join(checkpoints_path, "test_min_loss.pth")
             torch.save(model.state_dict(), saved_path)
             test_min_loss = test_loss
-        if test_t_error < test_min_t_error:
-            saved_path = os.path.join(checkpoints_path, "test_min_t_error.pth")
-            torch.save(model.state_dict(), saved_path)
-            test_min_t_error = test_t_error
-        if test_R_error < test_min_R_error:
-            saved_path = os.path.join(checkpoints_path, "test_min_R_error.pth")
-            torch.save(model.state_dict(), saved_path)
-            test_min_R_error = test_R_error
-        if test_degree_error < test_min_degree_error:
+        if test_r_error < test_min_r_mse_error:
             saved_path = os.path.join(checkpoints_path,
-                                     "test_min_degree_error.pth")
+                                      "test_min_rmse_error.pth")
             torch.save(model.state_dict(), saved_path)
-            test_min_degree_error = test_degree_error
+            test_min_r_mse_error = test_r_error
+        if test_rot_error < test_min_rot_error:
+            saved_path = os.path.join(checkpoints_path,
+                                      "test_min_rot_error.pth")
+            torch.save(model.state_dict(), saved_path)
+            test_min_rot_error = test_rot_error
         scheduler.step()
 
 

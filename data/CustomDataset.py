@@ -17,27 +17,19 @@ class CustomData(Dataset):
         self.train = train
         self.files = [os.path.join(path, item) for item in sorted(os.listdir(path))]
         self.npts = npts
-        l = len(self.files)
-        self.Rs = [generate_random_rotation_matrix(-20, 20) for _ in range(l)]
-        self.ts = [generate_random_tranlation_vector(-0.5, 0.5) for _ in range(l)]
-        self.caches = {}
+
     def __getitem__(self, item):
-        if item in self.caches:
-            return self.caches[item]
         file = self.files[item]
         ref_cloud = readpcd(file, rtype='npy')
         ref_cloud = random_select_points(ref_cloud, m=self.npts)
         ref_cloud = pc_normalize(ref_cloud)
-        #if self.train:
-        #    ref_cloud = shift_point_cloud(ref_cloud)
-        R, t = self.Rs[item], self.ts[item]
+        R, t = generate_random_rotation_matrix(-20, 20), \
+               generate_random_tranlation_vector(-0.5, 0.5)
         src_cloud = transform(ref_cloud, R, t)
         if self.train:
             ref_cloud = jitter_point_cloud(ref_cloud)
             src_cloud = jitter_point_cloud(src_cloud)
-        self.caches[item] = [ref_cloud, src_cloud, R, t]
         return ref_cloud, src_cloud, R, t
-
 
     def __len__(self):
         return len(self.files)

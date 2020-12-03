@@ -157,3 +157,41 @@ def inv_R_t(R, t):
     inv_R = R.permute(0, 2, 1).contiguous()
     inv_t = - inv_R @ t[..., None]
     return inv_R, torch.squeeze(inv_t, -1)
+
+
+def uniform_2_sphere(num: int = None):
+    """Uniform sampling on a 2-sphere
+
+    Source: https://gist.github.com/andrewbolster/10274979
+
+    Args:
+        num: Number of vectors to sample (or None if single)
+
+    Returns:
+        Random Vector (np.ndarray) of size (num, 3) with norm 1.
+        If num is None returned value will have size (3,)
+
+    """
+    if num is not None:
+        phi = np.random.uniform(0.0, 2 * np.pi, num)
+        cos_theta = np.random.uniform(-1.0, 1.0, num)
+    else:
+        phi = np.random.uniform(0.0, 2 * np.pi)
+        cos_theta = np.random.uniform(-1.0, 1.0)
+
+    theta = np.arccos(cos_theta)
+    x = np.sin(theta) * np.cos(phi)
+    y = np.sin(theta) * np.sin(phi)
+    z = np.cos(theta)
+
+    return np.stack((x, y, z), axis=-1)
+
+
+def random_crop(pc, p_keep):
+    rand_xyz = uniform_2_sphere()
+    centroid = np.mean(pc[:, :3], axis=0)
+    pc_centered = pc[:, :3] - centroid
+
+    dist_from_plane = np.dot(pc_centered, rand_xyz)
+    mask = dist_from_plane > np.percentile(dist_from_plane, (1.0 - p_keep) * 100)
+    return pc[mask, :]

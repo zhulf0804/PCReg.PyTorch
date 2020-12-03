@@ -3,6 +3,7 @@ import numpy as np
 import open3d
 import os
 import torch
+import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
@@ -29,6 +30,9 @@ def config_params():
                         help='the points number of each pc for training')
     parser.add_argument('--normal', action='store_true',
                         help='whether to use normal data')
+    parser.add_argument('--mode', default='clean',
+                        choices=['clean', 'partial', 'noise'],
+                        help='training mode about data')
     ## models training
     parser.add_argument('--seed', type=int, default=1234)
     parser.add_argument('--gn', action='store_true',
@@ -73,8 +77,6 @@ def train_one_epoch(train_loader, model, loss_fn, optimizer):
         optimizer.zero_grad()
         R, t, pred_ref_clouds = model(src_cloud.permute(0, 2, 1).contiguous(),
                                      ref_cloud.permute(0, 2, 1).contiguous())
-        #loss = loss_fn(ref_cloud[..., :3].contiguous(),
-        #               pred_ref_clouds[..., :3].contiguous())
         loss = compute_loss(ref_cloud, pred_ref_clouds, loss_fn)
         loss.backward()
         optimizer.step()
@@ -113,8 +115,6 @@ def test_one_epoch(test_loader, model, loss_fn):
                                              gtR.cuda(), gtt.cuda()
             R, t, pred_ref_clouds = model(src_cloud.permute(0, 2, 1).contiguous(),
                                          ref_cloud.permute(0, 2, 1).contiguous())
-            #loss = loss_fn(ref_cloud[..., :3].contiguous(),
-            #               pred_ref_cloud[..., :3].contiguous())
             loss = compute_loss(ref_cloud, pred_ref_clouds, loss_fn)
             cur_r_mse, cur_r_mae, cur_t_mse, cur_t_mae, cur_r_isotropic, \
             cur_t_isotropic = compute_metrics(R, t, gtR, gtt)
@@ -155,8 +155,16 @@ def main():
     if not os.path.exists(checkpoints_path):
         os.makedirs(checkpoints_path)
 
-    train_set = ModelNet40(args.root, args.train_npts, True, args.normal)
-    test_set = ModelNet40(args.root, args.train_npts, False, args.normal)
+    train_set = ModelNet40(root=args.root,
+                           npts=args.train_npts,
+                           train=True,
+                           normal=args.normal,
+                           mode=args.mode)
+    test_set = ModelNet40(root=args.root,
+                          npts=args.train_npts,
+                          train=False,
+                          normal=args.normal,
+                          mode=args.mode)
     train_loader = DataLoader(train_set, batch_size=args.batchsize,
                               shuffle=True, num_workers=args.num_workers)
     test_loader = DataLoader(test_set, batch_size=args.batchsize, shuffle=False,
@@ -165,8 +173,7 @@ def main():
     in_dim = 6 if args.normal else 3
     model = IterativeBenchmark(in_dim=in_dim, niters=args.niters, gn=args.gn)
     model = model.cuda()
-    loss_fn = EMDLosspy()
-    loss_fn = loss_fn.cuda()
+    loss_fn = EMDLosspy().cuda()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
                                                      milestones=args.milestones,

@@ -20,11 +20,7 @@ class EMDLosspy(nn.Module):
 
 if __name__ == '__main__':
     loss = EMDLosspy()
-    print('emd loss')
     a = torch.randn(4, 5, 3).cuda()
     b = copy.deepcopy(a)
-    #b = torch.randn(4, 5, 3).cuda()
-    print(a)
-    print(b)
     v = loss(a, b)
     print(v)
