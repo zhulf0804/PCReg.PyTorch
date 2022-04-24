@@ -1,3 +1,8 @@
+**Our recent registraion works**: 
+
+- NgeNet: [paper](https://arxiv.org/pdf/2201.12094.pdf), [code](https://github.com/zhulf0804/NgeNet). We achieved **SoTA RR** (Registration Recall) in 3DMatch with 92.9%.
+- ROPNet [paper](https://arxiv.org/pdf/2107.02583.pdf), [code](https://github.com/zhulf0804/ROPNet). Our solution based on ROPNet and [OverlapPredator](https://github.com/prs-eth/OverlapPredator) won the second place on the [MVP Registration Challenge (ICCV Workshop 2021)](https://mvp-dataset.github.io/MVP/Registration.html). [[Technical Report](https://arxiv.org/pdf/2112.12053.pdf)]
+
 ## Introduction
 
 A Simple Point Cloud Registration Pipeline based on Deep Learning. Detailed Information Please Visit this [Zhihu Blog](https://zhuanlan.zhihu.com/p/289620126). 
