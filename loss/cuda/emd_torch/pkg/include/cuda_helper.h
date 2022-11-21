@@ -1,6 +1,10 @@
 #ifndef CUDA_HELPER_H_
 #define CUDA_HELPER_H_
 
+#ifndef AT_CHECK
+#define AT_CHECK TORCH_CHECK
+#endif
+
 #define CUDA_CHECK(err) \
 	if (cudaSuccess != err) \
 	{ \
